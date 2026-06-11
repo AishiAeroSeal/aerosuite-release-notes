@@ -305,31 +305,43 @@ function renderHTML(data, version, releaseDate, internalDate) {
   const lines = [];
   lines.push('<!DOCTYPE html>');
   lines.push('<html lang="en">');
-  lines.push('');
   lines.push('<body class="as-scrollbar">');
   lines.push('    <div>');
-  lines.push(`        <h2><strong>AeroSuite Version ${version} – Released ${releaseDate || '___________'}</strong></h2>`);
-  if (internalDate) lines.push(`        <p><em>Released internally on ${internalDate}</em></p>`);
-  lines.push('');
+  lines.push(`        <div class="as-heading as-no-top-padding">`);
+  lines.push(`            Version ${version} - Released ${releaseDate || '___________'}`);
+  lines.push(`        </div>`);
+  if (internalDate) {
+    lines.push(`        <div class="as-subheading">`);
+    lines.push(`            Released internally on ${internalDate}`);
+    lines.push(`        </div>`);
+  }
 
   for (const section of data.sections) {
-    lines.push(`        <div><strong><u>${section.title}:</u></strong></div>`);
+    lines.push(`        <div class="as-heading">`);
+    lines.push(`            ${section.title}`);
+    lines.push(`        </div>`);
     for (const sub of section.subsections) {
       if (sub.title) {
-        lines.push('        <ul>');
-        lines.push(`            <li><strong><u>${sub.title}:</u></strong>`);
-        lines.push('                <ul>');
-        for (const b of sub.bullets) lines.push(`                    <li>${b}</li>`);
-        lines.push('                </ul>');
-        lines.push('            </li>');
-        lines.push('        </ul>');
+        lines.push('        <div>');
+        lines.push(`            <div class="as-help-sub-heading indented-heading">${sub.title}</div>`);
+        lines.push('            <ul class="as-help-bullet-list indented-bullets">');
+        for (const b of sub.bullets) {
+          lines.push('                <li>');
+          lines.push(`                    ${b}`);
+          lines.push('                </li>');
+        }
+        lines.push('            </ul>');
+        lines.push('        </div>');
       } else {
-        lines.push('        <ul>');
-        for (const b of sub.bullets) lines.push(`            <li>${b}</li>`);
+        lines.push('        <ul class="as-help-bullet-list indented-bullets">');
+        for (const b of sub.bullets) {
+          lines.push('            <li>');
+          lines.push(`                ${b}`);
+          lines.push('            </li>');
+        }
         lines.push('        </ul>');
       }
     }
-    lines.push('');
   }
 
   lines.push('    </div>');
