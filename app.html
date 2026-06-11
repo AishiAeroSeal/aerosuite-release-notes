@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AeroSuite Release Notes Generator</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f5; color: #1a1a1a; font-size: 14px; }
+
+  .topbar { background: #1a1a2e; color: #fff; padding: 14px 24px; display: flex; align-items: center; gap: 12px; }
+  .topbar-logo { font-size: 16px; font-weight: 600; letter-spacing: -0.3px; }
+  .topbar-sub { font-size: 12px; color: #8888aa; }
+
+  .config-bar { background: #fff; border-bottom: 1px solid #e5e5e5; padding: 14px 24px; display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 11px; font-weight: 600; color: #666; text-transform: uppercase; letter-spacing: 0.04em; }
+  .field input { font-size: 13px; padding: 7px 10px; border: 1px solid #ddd; border-radius: 6px; color: #1a1a1a; background: #fafafa; width: 180px; }
+  .field input:focus { outline: none; border-color: #4a6cf7; background: #fff; }
+
+  .api-field input { width: 280px; font-family: monospace; }
+
+  .upload-btn, .gen-btn { font-size: 13px; padding: 7px 14px; border-radius: 6px; border: 1px solid #ddd; background: #fafafa; color: #333; cursor: pointer; display: flex; align-items: center; gap: 6px; align-self: flex-end; font-weight: 500; transition: background 0.15s; }
+  .upload-btn:hover { background: #f0f0f0; }
+  .gen-btn { background: #1a1a2e; color: #fff; border-color: #1a1a2e; }
+  .gen-btn:hover { background: #2a2a4e; }
+  .gen-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .file-label { font-size: 12px; color: #999; align-self: flex-end; padding-bottom: 8px; }
+
+  #hidden-upload { display: none; }
+
+  .panels { display: grid; grid-template-columns: 1fr 1fr; height: calc(100vh - 130px); }
+  .panel { display: flex; flex-direction: column; border-right: 1px solid #e5e5e5; overflow: hidden; }
+  .panel:last-child { border-right: none; }
+  .panel-header { padding: 10px 16px; background: #fafafa; border-bottom: 1px solid #e5e5e5; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; }
+  .panel-title { font-size: 11px; font-weight: 600; color: #888; text-transform: uppercase; letter-spacing: 0.05em; }
+  .copy-btn { font-size: 12px; padding: 4px 10px; border-radius: 5px; border: 1px solid #ddd; background: #fff; color: #555; cursor: pointer; }
+  .copy-btn:hover { background: #f0f0f0; }
+  .panel-body { flex: 1; overflow-y: auto; padding: 20px; }
+
+  .placeholder { color: #bbb; font-style: italic; font-size: 13px; }
+
+  /* Preview styles */
+  .preview h2 { font-size: 15px; font-weight: 700; margin-bottom: 16px; color: #1a1a1a; }
+  .preview .internal-date { font-style: italic; font-size: 12px; color: #888; margin-top: -10px; margin-bottom: 14px; }
+  .preview h3 { font-size: 13px; font-weight: 700; text-decoration: underline; margin: 16px 0 6px; color: #1a1a1a; }
+  .preview h4 { font-size: 13px; font-weight: 600; text-decoration: underline; margin: 10px 0 4px; color: #333; }
+  .preview ul { padding-left: 20px; margin: 4px 0; }
+  .preview li { margin: 4px 0; font-size: 13px; line-height: 1.5; }
+  .preview .sub-ul { padding-left: 18px; list-style-type: circle; }
+  .preview .dni-section { margin-top: 24px; padding-top: 16px; border-top: 2px dashed #e5e5e5; }
+  .preview .dni-section h3 { color: #888; }
+  .preview .dni-reason { color: #999; font-style: italic; }
+
+  /* HTML panel */
+  #html-panel pre { font-family: 'Courier New', monospace; font-size: 12px; white-space: pre-wrap; word-break: break-word; line-height: 1.6; color: #2d2d2d; }
+
+  .loading { display: flex; align-items: center; gap: 8px; color: #888; font-size: 13px; padding: 20px 0; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; background: #bbb; display: inline-block; animation: pulse 1.2s infinite; margin: 0 2px; }
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes pulse { 0%,80%,100%{transform:scale(0.7);opacity:0.4} 40%{transform:scale(1);opacity:1} }
+
+  .error-box { background: #fff5f5; border: 1px solid #fcc; border-radius: 6px; padding: 12px 16px; color: #c33; font-size: 13px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div>
+    <div class="topbar-logo">AeroSuite Release Notes Generator</div>
+    <div class="topbar-sub">Upload a CSV export from Azure DevOps to generate release notes</div>
+  </div>
+</div>
+
+<div class="config-bar">
+  <div class="field api-field">
+    <label>Anthropic API Key</label>
+    <input type="password" id="apiKey" placeholder="sk-ant-..." />
+  </div>
+  <div class="field">
+    <label>Version number</label>
+    <input type="text" id="version" placeholder="e.g. 1.15.0.0" />
+  </div>
+  <div class="field">
+    <label>Release date</label>
+    <input type="text" id="releaseDate" placeholder="e.g. June 1, 2026" />
+  </div>
+  <div class="field">
+    <label>Internal release date (optional)</label>
+    <input type="text" id="internalDate" placeholder="e.g. May 20, 2026" />
+  </div>
+  <button class="upload-btn" onclick="document.getElementById('hidden-upload').click()">
+    &#8593; Upload CSV
+  </button>
+  <input type="file" id="hidden-upload" accept=".csv" onchange="handleFile(this)" />
+  <span class="file-label" id="file-label">No file selected</span>
+  <button class="gen-btn" id="gen-btn" onclick="generate()" disabled>
+    &#10024; Generate release notes
+  </button>
+</div>
+
+<div class="panels">
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Text Preview</span>
+      <button class="copy-btn" id="copy-text-btn" onclick="copyText()" style="display:none">Copy text</button>
+    </div>
+    <div class="panel-body" id="preview-panel">
+      <p class="placeholder">Upload a CSV and click Generate to see the release notes preview here.</p>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">HTML Output</span>
+      <button class="copy-btn" id="copy-html-btn" onclick="copyHTML()" style="display:none">Copy HTML</button>
+    </div>
+    <div class="panel-body" id="html-panel">
+      <p class="placeholder">The HTML output will appear here, ready to copy and paste.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+let csvData = [];
+let generatedHTML = '';
+let generatedTextPlain = '';
+
+function handleFile(input) {
+  const file = input.files[0];
+  if (!file) return;
+  document.getElementById('file-label').textContent = file.name;
+  Papa.parse(file, {
+    header: true,
+    skipEmptyLines: true,
+    complete: function(results) {
+      csvData = results.data;
+      document.getElementById('gen-btn').disabled = false;
+    }
+  });
+}
+
+async function generate() {
+  if (!csvData.length) return;
+
+  const apiKey = document.getElementById('apiKey').value.trim();
+  if (!apiKey) { alert('Please enter your Anthropic API key.'); return; }
+
+  const version = document.getElementById('version').value.trim() || 'X.X.X.X';
+  const releaseDate = document.getElementById('releaseDate').value.trim();
+  const internalDate = document.getElementById('internalDate').value.trim();
+
+  const btn = document.getElementById('gen-btn');
+  btn.disabled = true;
+  btn.textContent = 'Generating…';
+
+  document.getElementById('preview-panel').innerHTML = '<div class="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span> Writing release notes…</div>';
+  document.getElementById('html-panel').innerHTML = '<div class="loading"><span class="dot"></span><span class="dot"></span><span class="dot"></span> Building HTML…</div>';
+  document.getElementById('copy-text-btn').style.display = 'none';
+  document.getElementById('copy-html-btn').style.display = 'none';
+
+  const csvText = csvData.map(r =>
+    `${r.ID || r['ID']} | ${r['Work Item Type']} | ${r.Title} | State: ${r.State} | Tags: ${r.Tags}`
+  ).join('\n');
+
+  const systemPrompt = `You are an expert technical writer for AeroSuite, a sealing software product made by Aeroseal. You write public-facing release notes from Azure DevOps work item CSV exports.
+
+FILTERING RULES:
+- ALWAYS DROP items with State = "Removed"
+- INCLUDE items with State = Closed, Active, or New — UNLESS they are pure internal/developer tickets
+- DROP these regardless of state: release management tickets ("I want to release version..."), unit test tickets, QA/testing tickets, Demo App tagged items, Multi-Point tagged items, ScopeCreep tagged items, sprint review/feedback-only tickets with no clear user feature
+
+SECTION RULES — use these exact headers, only include a section if it has content:
+- "HSC EuroSeal 4.0" → items tagged EuroSeal
+- "HomeSeal Connect (HSC), HomeSeal Advance (HSA), and Gen 2.1 with Residential License" → items tagged both HSC and HSA
+- "HomeSeal Advance (HSA)" → items tagged HSA only (not HSC)
+- "HomeSeal Connect (HSC)" → items tagged HSC only (not HSA)
+- "AeroBarrier Select (ABS) and AeroBarrier Connect (ABC)" → items tagged ABS or ABC
+- "Commercial" → items tagged Commercial only (not EuroSeal)
+- "New Features / Improvements" → general AeroSuite items, RNC WO items, or items with no specific hardware tag
+- "Bug Fixes" → standalone section for bugs not tied to any hardware section
+
+WRITING RULES:
+- Bugs go under a "Bug Fixes" subsection within their product section
+- Bug bullets: "Fixed a bug where..." or "Resolved an issue where..."
+- User stories/Change Requests: rewrite from agile format into plain third-person (drop "As a user/developer...")
+- Merge related tickets into one encompassing bullet — don't list every ticket separately
+- Strip all technical jargon: no table names, API terms, error codes, internal system names
+- Tone: calm, reassuring, factual — never imply something was badly broken, never cause alarm
+- Do NOT state why a feature was added or what problem it solves — just state what it does now
+- Short, clean, one-line bullets
+- No ticket IDs in output ever
+
+DID NOT INCLUDE — for every ticket you drop, record it with your official reworded description and a short reason.
+
+RETURN valid JSON only. No markdown fences, no preamble, no explanation. Just the JSON object:
+{
+  "sections": [
+    {
+      "title": "Section header exactly as specified above",
+      "subsections": [
+        {
+          "title": null,
+          "bullets": ["bullet text"]
+        },
+        {
+          "title": "Bug Fixes",
+          "bullets": ["Fixed a bug where..."]
+        }
+      ]
+    }
+  ],
+  "didNotInclude": [
+    {
+      "text": "Reworded official description of what was dropped",
+      "reason": "Short reason why"
+    }
+  ]
+}`;
+
+  const userPrompt = `Generate release notes for AeroSuite Version ${version}.
+Release date: ${releaseDate || '___________'}
+${internalDate ? 'Released internally on: ' + internalDate : ''}
+
+Work items from CSV:
+${csvText}`;
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error?.message || 'API request failed');
+
+    let raw = data.content?.find(b => b.type === 'text')?.text || '';
+    raw = raw.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(raw);
+
+    renderPreview(parsed, version, releaseDate, internalDate);
+    renderHTML(parsed, version, releaseDate, internalDate);
+
+    document.getElementById('copy-text-btn').style.display = 'inline-block';
+    document.getElementById('copy-html-btn').style.display = 'inline-block';
+
+  } catch(err) {
+    document.getElementById('preview-panel').innerHTML = `<div class="error-box"><strong>Error:</strong> ${err.message}</div>`;
+    document.getElementById('html-panel').innerHTML = '';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '✨ Generate release notes';
+  }
+}
+
+function renderPreview(data, version, releaseDate, internalDate) {
+  let html = '<div class="preview">';
+  html += `<h2>AeroSuite Version ${version}${releaseDate ? ' – Released ' + releaseDate : ' – Released ___________'}</h2>`;
+  if (internalDate) html += `<p class="internal-date">Released internally on ${internalDate}</p>`;
+
+  for (const section of data.sections) {
+    html += `<h3>${section.title}:</h3>`;
+    for (const sub of section.subsections) {
+      if (sub.title) {
+        html += `<ul><li><h4>${sub.title}:</h4><ul class="sub-ul">`;
+        for (const b of sub.bullets) html += `<li>${b}</li>`;
+        html += '</ul></li></ul>';
+      } else {
+        html += '<ul>';
+        for (const b of sub.bullets) html += `<li>${b}</li>`;
+        html += '</ul>';
+      }
+    }
+  }
+
+  if (data.didNotInclude && data.didNotInclude.length) {
+    html += '<div class="dni-section"><h3>Did Not Include</h3><ul>';
+    for (const d of data.didNotInclude) {
+      html += `<li>${d.text} — <span class="dni-reason">${d.reason}</span></li>`;
+    }
+    html += '</ul></div>';
+  }
+
+  html += '</div>';
+
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  generatedTextPlain = tmp.innerText;
+  document.getElementById('preview-panel').innerHTML = html;
+}
+
+function renderHTML(data, version, releaseDate, internalDate) {
+  const lines = [];
+  lines.push('<!DOCTYPE html>');
+  lines.push('<html lang="en">');
+  lines.push('');
+  lines.push('<body class="as-scrollbar">');
+  lines.push('    <div>');
+  lines.push(`        <h2><strong>AeroSuite Version ${version} – Released ${releaseDate || '___________'}</strong></h2>`);
+  if (internalDate) lines.push(`        <p><em>Released internally on ${internalDate}</em></p>`);
+  lines.push('');
+
+  for (const section of data.sections) {
+    lines.push(`        <div><strong><u>${section.title}:</u></strong></div>`);
+    for (const sub of section.subsections) {
+      if (sub.title) {
+        lines.push('        <ul>');
+        lines.push(`            <li><strong><u>${sub.title}:</u></strong>`);
+        lines.push('                <ul>');
+        for (const b of sub.bullets) lines.push(`                    <li>${b}</li>`);
+        lines.push('                </ul>');
+        lines.push('            </li>');
+        lines.push('        </ul>');
+      } else {
+        lines.push('        <ul>');
+        for (const b of sub.bullets) lines.push(`            <li>${b}</li>`);
+        lines.push('        </ul>');
+      }
+    }
+    lines.push('');
+  }
+
+  lines.push('    </div>');
+  lines.push('</body>');
+  lines.push('</html>');
+
+  generatedHTML = lines.join('\n');
+
+  const escaped = generatedHTML
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  document.getElementById('html-panel').innerHTML = `<pre>${escaped}</pre>`;
+}
+
+function copyText() {
+  navigator.clipboard.writeText(generatedTextPlain).then(() => {
+    const btn = document.getElementById('copy-text-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy text', 2000);
+  });
+}
+
+function copyHTML() {
+  navigator.clipboard.writeText(generatedHTML).then(() => {
+    const btn = document.getElementById('copy-html-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy HTML', 2000);
+  });
+}
+</script>
+</body>
+</html>
