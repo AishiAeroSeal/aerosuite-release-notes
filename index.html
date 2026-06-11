@@ -192,8 +192,6 @@ WRITING RULES:
 - Short, clean, one-line bullets
 - No ticket IDs in output ever
 
-DID NOT INCLUDE — for every ticket you drop, record it with your official reworded description and a short reason.
-
 RETURN valid JSON only. No markdown fences, no preamble, no explanation. Just the JSON object:
 {
   "sections": [
@@ -209,12 +207,6 @@ RETURN valid JSON only. No markdown fences, no preamble, no explanation. Just th
           "bullets": ["Fixed a bug where..."]
         }
       ]
-    }
-  ],
-  "didNotInclude": [
-    {
-      "text": "Reworded official description of what was dropped",
-      "reason": "Short reason why"
     }
   ]
 }`;
@@ -283,14 +275,6 @@ function renderPreview(data, version, releaseDate, internalDate) {
         html += '</ul>';
       }
     }
-  }
-
-  if (data.didNotInclude && data.didNotInclude.length) {
-    html += '<div class="dni-section"><h3>Did Not Include</h3><ul>';
-    for (const d of data.didNotInclude) {
-      html += `<li>${d.text} — <span class="dni-reason">${d.reason}</span></li>`;
-    }
-    html += '</ul></div>';
   }
 
   html += '</div>';
